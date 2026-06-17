@@ -11,14 +11,9 @@ const weekOffset = ref(0)
 const chartRef = ref<HTMLDivElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
-const report = computed(() => getWeeklyReportData(weekOffset.value))
-
-const weekRangeLabel = computed(() => {
-  const end = new Date(Date.now() - weekOffset.value * 7 * 24 * 3600 * 1000)
-  const start = new Date(end.getTime() - 6 * 24 * 3600 * 1000)
-  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  return `${fmt(start)} ~ ${fmt(end)}`
-})
+const reportResult = computed(() => getWeeklyReportData(weekOffset.value))
+const report = computed(() => reportResult.value.data)
+const weekRangeLabel = computed(() => reportResult.value.range.label)
 
 const summary = computed(() => {
   const list = report.value
@@ -99,7 +94,7 @@ function renderChart() {
           data: report.value.map((r) => ({
             value: r.maxRate,
             itemStyle: {
-              color: r.maxRate >= 10 ? '#ef4444' : r.maxRate >= 5 ? '#f97316' : r.maxRate >= 2 ? '#eab308' : '#22c55e',
+              color: getSafetyColor(r.weekMaxLevel),
             },
           })),
           barWidth: '35%',
@@ -107,7 +102,11 @@ function renderChart() {
             silent: true,
             symbol: 'none',
             lineStyle: { type: 'dashed', width: 1.5, color: '#ef4444' },
-            data: [{ yAxis: 2, label: { formatter: '预警 2', color: '#eab308', fontSize: 10 } }, { yAxis: 5, label: { formatter: '警示 5', color: '#f97316', fontSize: 10 } }, { yAxis: 10, label: { formatter: '报警 10', color: '#ef4444', fontSize: 10 } }],
+            data: [
+              { yAxis: 2, label: { formatter: '预警 2', color: '#eab308', fontSize: 10 } },
+              { yAxis: 5, label: { formatter: '警示 5', color: '#f97316', fontSize: 10 } },
+              { yAxis: 10, label: { formatter: '报警 10', color: '#ef4444', fontSize: 10 } },
+            ],
           },
         },
       ],
@@ -144,7 +143,7 @@ function printReport() {
         <h2 class="text-xl font-bold text-slate-100">边坡监测周报</h2>
         <div class="mt-1 text-xs text-slate-400">
           <Calendar class="mr-1 inline-block h-3.5 w-3.5 text-sky-400" />
-          {{ weekRangeLabel }}
+          {{ weekRangeLabel }}（自然周，周一至周日）
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -198,7 +197,9 @@ function printReport() {
           <Shield class="h-3.5 w-3.5" />
           整体平均速率
         </div>
-        <div class="mt-1 text-2xl font-bold text-emerald-400">{{ summary.avgRate }} <span class="text-xs font-normal text-slate-400">mm/天</span></div>
+        <div class="mt-1 text-2xl font-bold text-emerald-400">
+          {{ summary.avgRate }} <span class="text-xs font-normal text-slate-400">mm/天</span>
+        </div>
       </div>
     </div>
 
@@ -232,7 +233,10 @@ function printReport() {
               <td class="px-4 py-2 text-slate-400">{{ r.point.type }}</td>
               <td class="px-4 py-2 text-slate-400">{{ r.point.area === 'stope' ? '采场' : '排土场' }}</td>
               <td class="px-4 py-2 text-right font-mono">{{ r.avgRate.toFixed(2) }}</td>
-              <td class="px-4 py-2 text-right font-mono font-bold" :style="{ color: getSafetyColor(r.point.level) }">
+              <td
+                class="px-4 py-2 text-right font-mono font-bold"
+                :style="{ color: getSafetyColor(r.weekMaxLevel) }"
+              >
                 {{ r.maxRate.toFixed(2) }}
               </td>
               <td class="px-4 py-2 text-right font-mono">{{ r.exceedCount }}</td>
@@ -242,12 +246,12 @@ function printReport() {
                 <span
                   class="inline-block rounded px-2 py-0.5 text-[10px] font-semibold"
                   :style="{
-                    background: getSafetyColor(r.point.level) + '22',
-                    color: getSafetyColor(r.point.level),
-                    border: '1px solid ' + getSafetyColor(r.point.level) + '55',
+                    background: getSafetyColor(r.weekMaxLevel) + '22',
+                    color: getSafetyColor(r.weekMaxLevel),
+                    border: '1px solid ' + getSafetyColor(r.weekMaxLevel) + '55',
                   }"
                 >
-                  {{ getSafetyLabel(r.point.level) }}
+                  {{ getSafetyLabel(r.weekMaxLevel) }}
                 </span>
               </td>
             </tr>
@@ -262,7 +266,8 @@ function printReport() {
       <div class="mt-4 space-y-1.5 text-xs text-slate-400">
         <p>1. 监测数据频率：GNSS 与雷达系统每小时自动采集上报一次。</p>
         <p>2. 报警阈值：安全 < 2mm/天，预警 2~5mm/天，警示 5~10mm/天，报警 > 10mm/天。</p>
-        <p>3. 报告生成：每周一 08:00 自动生成上一周监测报告，可在系统中打印或导出 PDF。</p>
+        <p>3. 报告周期：按自然周（周一 00:00 ~ 周日 23:59:59）统计。</p>
+        <p>4. 报告生成：每周一 08:00 自动生成上一周监测报告，可在系统中打印或导出 PDF。</p>
       </div>
       <div class="mt-5 text-right text-[11px] text-slate-500">
         报告生成时间：{{ new Date().toLocaleString() }}

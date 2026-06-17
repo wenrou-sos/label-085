@@ -1,6 +1,22 @@
 import { ref, computed } from 'vue'
-import type { MonitorPoint, DisplacementRecord, SlopeArea } from '@/types'
+import type { MonitorPoint, DisplacementRecord, SlopeArea, SafetyLevel } from '@/types'
 import { getSafetyLevel } from './useSafetyLevel'
+
+function getNaturalWeekRange(weekOffset: number): { start: number; end: number; label: string } {
+  const now = new Date()
+  const day = now.getDay()
+  const diffToMonday = day === 0 ? -6 : 1 - day
+  const thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday - weekOffset * 7)
+  const nextMonday = new Date(thisMonday.getTime() + 7 * 24 * 3600 * 1000)
+  const start = thisMonday.getTime()
+  const end = nextMonday.getTime() - 1
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return {
+    start,
+    end,
+    label: `${fmt(thisMonday)} ~ ${fmt(new Date(nextMonday.getTime() - 1))}`,
+  }
+}
 
 function seededRandom(seed: number) {
   let s = seed
@@ -93,18 +109,18 @@ export function useMockData() {
   }
 
   function getWeeklyReportData(weekOffset = 0) {
-    const end = Date.now() - weekOffset * 7 * 24 * 3600 * 1000
-    const start = end - 7 * 24 * 3600 * 1000
-    return points.value.map((p) => {
+    const range = getNaturalWeekRange(weekOffset)
+    const data = points.value.map((p) => {
       const hist = (historyMap.get(p.id) ?? []).filter((r) => {
         const t = new Date(r.timestamp).getTime()
-        return t >= start && t <= end
+        return t >= range.start && t <= range.end
       })
       const rates = hist.map((h) => h.rate)
       const avgRate = rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : 0
       const maxRate = rates.length ? Math.max(...rates) : 0
       const exceedCount = rates.filter((r) => r >= 2).length
       const latest = hist[hist.length - 1]
+      const weekMaxLevel: SafetyLevel = getSafetyLevel(maxRate)
       return {
         point: p,
         avgRate: +avgRate.toFixed(3),
@@ -113,8 +129,10 @@ export function useMockData() {
         totalHours: hist.length,
         finalHorizontal: latest?.horizontal ?? 0,
         finalVertical: latest?.vertical ?? 0,
+        weekMaxLevel,
       }
     })
+    return { range, data }
   }
 
   return {

@@ -49,13 +49,13 @@ function buildOption(): echarts.EChartsOption {
     },
     grid: { left: 50, right: 55, top: 40, bottom: 50 },
     dataZoom: [
-      { type: 'inside', startValue: Math.max(0, xData.length - 168), endValue: xData.length - 1 },
+      { type: 'inside', start: 0, end: 100 },
       {
         type: 'slider',
         height: 18,
         bottom: 8,
-        startValue: Math.max(0, xData.length - 168),
-        endValue: xData.length - 1,
+        start: 0,
+        end: 100,
         borderColor: '#1e293b',
         textStyle: { color: '#64748b' },
         fillerColor: 'rgba(56,189,248,0.15)',
