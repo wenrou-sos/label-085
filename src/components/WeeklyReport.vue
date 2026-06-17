@@ -3,7 +3,8 @@ import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as echarts from 'echarts'
 import { Printer, Calendar, AlertTriangle, ShieldAlert, Shield, AlertCircle } from 'lucide-vue-next'
 import { useMockData } from '@/composables/useMockData'
-import { getSafetyColor, getSafetyLabel } from '@/composables/useSafetyLevel'
+import { getSafetyColor, getSafetyLabel, generateConclusion } from '@/composables/useSafetyLevel'
+import { getWeekLabel } from '@/utils/dateUtils'
 
 const { getWeeklyReportData } = useMockData()
 
@@ -25,19 +26,11 @@ const summary = computed(() => {
   return { totalPoints, exceedPoints, dangerousPoints, totalExceedHours, avgRate: +avgRate.toFixed(3) }
 })
 
-const conclusion = computed(() => {
-  const { dangerousPoints, exceedPoints, avgRate } = summary.value
-  if (dangerousPoints > 0) {
-    return `本周共有 ${dangerousPoints} 个监测点触发红色报警阈值，边坡失稳风险极高，建议立即启动应急处置预案，加密监测频次。`
-  }
-  if (exceedPoints > 3 || avgRate > 3) {
-    return `本周共 ${exceedPoints} 个监测点出现超过预警阈值现象，整体平均速率 ${avgRate} mm/天，边坡处于加速变形阶段，建议加强现场巡查并做好预警准备。`
-  }
-  if (exceedPoints > 0) {
-    return `本周边坡整体稳定，仅 ${exceedPoints} 个监测点出现短暂预警，持续保持监测即可。`
-  }
-  return '本周所有监测点位移速率均处于安全范围内，边坡整体稳定。'
-})
+const weekLabel = computed(() => getWeekLabel(weekOffset.value))
+
+const conclusion = computed(() =>
+  generateConclusion(summary.value, weekLabel.value),
+)
 
 function onResize() {
   chartInstance?.resize()

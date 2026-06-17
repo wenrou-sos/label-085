@@ -1,22 +1,7 @@
 import { ref, computed } from 'vue'
 import type { MonitorPoint, DisplacementRecord, SlopeArea, SafetyLevel } from '@/types'
 import { getSafetyLevel } from './useSafetyLevel'
-
-function getNaturalWeekRange(weekOffset: number): { start: number; end: number; label: string } {
-  const now = new Date()
-  const day = now.getDay()
-  const diffToMonday = day === 0 ? -6 : 1 - day
-  const thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday - weekOffset * 7)
-  const nextMonday = new Date(thisMonday.getTime() + 7 * 24 * 3600 * 1000)
-  const start = thisMonday.getTime()
-  const end = nextMonday.getTime() - 1
-  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  return {
-    start,
-    end,
-    label: `${fmt(thisMonday)} ~ ${fmt(new Date(nextMonday.getTime() - 1))}`,
-  }
-}
+import { getNaturalWeekRange } from '@/utils/dateUtils'
 
 function seededRandom(seed: number) {
   let s = seed
